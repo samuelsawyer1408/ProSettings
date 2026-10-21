@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ProSettings TCM</title>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a1a22;--panel:#122d3a;--line:#1f4556;--guide:#1d3f4e;--text:#e8f3f6;--muted:#7fa3b0;--accent:#41c0dd;--warn:#f6a93f;--ctl:#143645;--head:'Oswald','Arial Narrow',sans-serif;--body:'Work Sans',system-ui,sans-serif}
+:root[data-theme=light]{--bg:#e6eff1;--panel:#fff;--line:#c9d6da;--guide:#d9e3e6;--text:#0d2a35;--muted:#587783;--accent:#08758a;--warn:#c4520a;--ctl:#fff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 var(--body)}
+.wrap{max-width:820px;margin:0 auto;padding:20px 16px 40px}
+h1{font:600 32px var(--head);margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 16px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+input[type=text],select,button{font:inherit;color:var(--text);background:var(--ctl);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover,select:hover{border-color:var(--accent)}
+button.pri{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+input[type=text]{cursor:text;min-width:0;flex:1 1 220px}#cat{flex:0 1 180px}.badge{font-size:13px;color:var(--warn);visibility:hidden}.badge.on{visibility:visible}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 24px 16px}
+.panel h2{font:600 26px var(--head);margin:0}
+.cat{color:var(--muted);margin:0 0 6px}
+h3{font:600 17px var(--head);margin:18px 0 6px}
+.row{display:grid;grid-template-columns:auto 1fr 52px 44px 160px 72px;align-items:center;gap:0 8px;min-height:28px}
+.nm{padding-right:8px}.gl{height:1px;background:var(--guide)}
+.val{text-align:right;color:var(--accent);font-weight:500}
+.el,.er{color:var(--text);font-size:14px;white-space:nowrap}.er{text-align:left}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;margin:0;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:2px;background:linear-gradient(to right,var(--warn) var(--pct,0%),var(--muted) var(--pct,0%))}
+input[type=range]::-moz-range-track{height:2px;background:var(--muted)}
+input[type=range]::-moz-range-progress{height:2px;background:var(--warn)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;margin-top:-5px;border-radius:50%;background:var(--panel);border:2px solid var(--warn)}
+input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;background:var(--panel);border:2px solid var(--warn)}
+.xt{position:relative;height:16px;margin:0 6px}
+.xt:before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:var(--muted)}
+.xt b{position:absolute;left:0;top:7px;height:2px;background:var(--warn)}
+.xt i{position:absolute;top:2px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--panel);border:2px solid var(--warn)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}#toast.err{border-color:var(--warn)}
+@media(max-width:560px){.row{grid-template-columns:auto auto 1fr auto;row-gap:2px;padding:4px 0}.nm{grid-column:1/-1}.gl{display:none}.val{text-align:left}.panel{padding:16px}}
+@media print{.bar,h1,.sub,#toast{display:none}body{background:#fff}.wrap{padding:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>ProSettings- The Crew Motorfest</h1>
+<p class="sub">Type a car name and category, adjust the sliders, then export the sheet as a PNG.</p>
+<div class="bar">
+ <input type="text" id="name" maxlength="60" value="Car name" aria-label="Car name and year" placeholder="Car name (year)">
+ <select id="cat" aria-label="Vehicle category"></select>
+</div>
+<div class="bar">
+ <button class="pri" id="png">Export PNG</button>
+ <button id="reset">Reset values</button>
+ <button id="save">Save</button><button id="load">Load</button>
+ <button id="jsonOut">Export JSON</button><button id="jsonIn">Import JSON</button>
+ <button id="theme" aria-label="Toggle light or dark theme">Theme</button>
+ <span class="badge" id="dirty">Unsaved changes</span>
+</div>
+<input type="file" id="file" accept="application/json" hidden>
+<section id="panel" class="panel" aria-label="Tuning panel"></section>
+</div>
+<div id="toast" role="status"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+/* ---------- CONFIG: slider ranges and layout (edit here) ---------- */
+const P='pct',S='sign',D='deg',B='brake';
+const SECTIONS=[
+ {title:'Transmission',rows:[{k:'finalDrive',n:'Final Drive',min:-20,max:0,step:1,t:P,l:'Short',r:'Long'}]},
+ {title:'Tires',rows:[{k:'gripF',n:'Grip Front',min:-20,max:0,step:1,t:P},{k:'gripR',n:'Grip Rear',min:-20,max:0,step:1,t:P}]},
+ {title:'Brakes',rows:[{k:'brakeBal',n:'Brake Balance',min:40,max:80,step:1,t:B,rev:true},{k:'brakePow',n:'Brake Power',min:-30,max:0,step:1,t:P}]},
+ {title:'Aero',rows:[{k:'loadF',n:'Load Front',min:-30,max:0,step:1,t:P},{k:'loadR',n:'Load Rear',min:-30,max:0,step:1,t:P}]},
+ {title:'Suspension',rows:[
+  {k:'sprF',n:'Spring Front',min:-20,max:10},{k:'sprR',n:'Spring Rear',min:-20,max:10},
+  {k:'dcF',n:'Damper Compression Front',min:-20,max:20},{k:'dcR',n:'Damper Compression Rear',min:-20,max:20},
+  {k:'drF',n:'Damper Rebound Front',min:-20,max:20},{k:'drR',n:'Damper Rebound Rear',min:-20,max:20}
+ ].map(r=>({...r,step:1,t:S,l:'Soft',r:'Stiff'}))},
+ {title:'Anti Roll Bars',rows:[{k:'arbF',n:'ARB Front',min:-20,max:10,step:1,t:S,l:'Soft',r:'Stiff'},{k:'arbR',n:'ARB Rear',min:-20,max:10,step:1,t:S,l:'Soft',r:'Stiff'}]},
+ {title:'Alignment',rows:[{k:'camF',n:'Camber Front',min:-0.25,max:0.25,step:0.05,t:D},{k:'camR',n:'Camber Rear',min:-0.25,max:0.25,step:0.05,t:D}]}
+];
+/* ---------- DEFAULTS (edit here) ---------- */
+const KEYS=['finalDrive','gripF','gripR','brakeBal','brakePow','loadF','loadR','sprF','sprR','dcF','dcR','drF','drR','arbF','arbR','camF','camR'];
+const DEFAULTS={finalDrive:0,gripF:0,gripR:0,brakeBal:60,brakePow:0,loadF:0,loadR:0,sprF:0,sprR:0,dcF:0,dcR:0,drF:0,drR:0,arbF:0,arbR:0,camF:0,camR:0};
+const CATEGORIES=['Alpha GP','Cup Car','Demolition','Dragster','Drift','Helicopter','Hypercar','Jet','Monster','Motocross','Plane','PowerBoat','Racing','Rally','Rally Raid','Street Tier 1','Street Tier 2'];
+const SCALE=3,STORE='hypercar-tuning-v2';
+let state={...DEFAULTS};
+const $=s=>document.querySelector(s),panel=$('#panel');
+const RANGE={};SECTIONS.forEach(s=>s.rows.forEach(r=>RANGE[r.k]=r));
+
+function fmt(r,v){
+ if(r.t===D)return(v<0?'-':v>0?'+':'')+Math.abs(v).toFixed(2)+'\u00b0';
+ if(r.t===S)return(v>0?'+':'')+v+'%';
+ return v+'%';
+}
+function labels(r,v){return r.t===B?['Front','Rear '+(100-v)+'%']:[r.l||'',r.r||''];}
+function header(){
+ $('#ttl').textContent=$('#name').value.trim()||'Car name';
+ $('#cat-line').textContent='Category: '+($('#cat').value.trim()||'-');
+}
+function build(){
+ panel.textContent='';
+ const h=document.createElement('h2');h.id='ttl';panel.append(h);
+ const c=document.createElement('p');c.className='cat';c.id='cat-line';panel.append(c);
+ SECTIONS.forEach(s=>{
+  const t=document.createElement('h3');t.textContent=s.title;panel.append(t);
+  s.rows.forEach(r=>{
+   const row=document.createElement('div');row.className='row';
+   const mk=(tag,cls,id)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(id)e.id=id;return e;};
+   const nm=mk('span','nm');nm.textContent=r.n;
+   const inp=mk('input',null,'i-'+r.k);
+   Object.assign(inp,{type:'range',min:r.min,max:r.max,step:r.step});
+   inp.setAttribute('aria-label',r.n);
+   inp.addEventListener('input',()=>{const p=+inp.value;state[r.k]=+(r.rev?r.min+r.max-p:p).toFixed(2);paint(r.k);dirty();});
+   row.append(nm,mk('span','gl'),mk('span','val','v-'+r.k),mk('span','el','l-'+r.k),inp,mk('span','er','r-'+r.k));
+   panel.append(row);
+  });
+ });
+}
+function paint(k){
+ const r=RANGE[k],v=state[k],[a,b]=labels(r,v);
+ $('#v-'+k).textContent=fmt(r,v);$('#l-'+k).textContent=a;$('#r-'+k).textContent=b;const inp=$('#i-'+k);inp.value=r.rev?r.min+r.max-v:v;inp.style.setProperty('--pct',((inp.value-r.min)/(r.max-r.min)*100)+'%');
+}
+function render(){header();KEYS.forEach(paint);dirty();}
+function dirty(){$('#dirty').classList.toggle('on',JSON.stringify(state)!==JSON.stringify(DEFAULTS));}
+let tt;function toast(m,err){const t=$('#toast');t.textContent=m;t.className='on'+(err?' err':'');clearTimeout(tt);tt=setTimeout(()=>t.className='',2600);}
+
+/* ---------- Export PNG ---------- */
+async function exportPng(){
+ if(typeof html2canvas==='undefined'){toast('Export library failed to load. Check your internet connection and reload.',1);return;}
+ const host=document.createElement('div');
+ host.style.cssText='position:fixed;left:-9999px;top:0;width:700px';
+ const clone=panel.cloneNode(true);clone.removeAttribute('id');
+ clone.querySelectorAll('input[type=range]').forEach(inp=>{
+  const r=RANGE[inp.id.slice(2)],pos=(inp.value-r.min)/(r.max-r.min)*100;
+  const x=document.createElement('div');x.className='xt';
+  x.innerHTML='<b style="width:'+pos+'%"></b><i style="left:'+pos+'%"></i>';inp.replaceWith(x);
+ });
+ host.append(clone);document.body.append(host);
+ try{
+  if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+  const canvas=await html2canvas(clone,{scale:SCALE,backgroundColor:getComputedStyle(panel).backgroundColor});
+  const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
+  if(!blob)throw new Error('empty image');
+  const base=($('#name').value.trim()||'Car').replace(/[^\w\-]+/g,'-').replace(/^-+|-+$/g,'')||'Car';
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=base+'-Tuning.png';a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Exported '+a.download);
+ }catch(e){toast('Export failed: '+e.message,1);}
+ finally{host.remove();}
+}
+
+/* ---------- Save / load / JSON ---------- */
+const snapshot=()=>({name:$('#name').value,category:$('#cat').value,values:state});
+function apply(src){
+ if(!src||typeof src!=='object'||typeof src.values!=='object'||!src.values)throw new Error('invalid data');
+ const next={...DEFAULTS};
+ KEYS.forEach(k=>{const n=Number(src.values[k]);if(src.values[k]!==undefined&&isFinite(n)){const r=RANGE[k];next[k]=Math.min(r.max,Math.max(r.min,n));}});
+ state=next;
+ if(typeof src.name==='string')$('#name').value=src.name.slice(0,60);
+ if(CATEGORIES.includes(src.category))$('#cat').value=src.category;
+ render();
+}
+$('#save').onclick=()=>{try{localStorage.setItem(STORE,JSON.stringify(snapshot()));toast('Configuration saved');}catch(e){toast('Could not save: '+e.message,1);}};
+$('#load').onclick=()=>{try{const s=localStorage.getItem(STORE);if(!s)return toast('No saved configuration found',1);apply(JSON.parse(s));toast('Configuration loaded');}catch(e){toast('Could not load: '+e.message,1);}};
+$('#jsonOut').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(snapshot(),null,2)],{type:'application/json'}));a.download='tuning.json';a.click();toast('JSON exported');};
+$('#jsonIn').onclick=()=>$('#file').click();
+$('#file').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
+ try{apply(JSON.parse(await f.text()));toast('JSON imported');}catch(err){toast('Invalid JSON file: '+err.message,1);}};
+$('#reset').onclick=()=>{state={...DEFAULTS};render();toast('Values reset');};
+$('#png').onclick=exportPng;
+$('#name').oninput=header;$('#cat').onchange=header;
+$('#theme').onclick=()=>{const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';};
+
+/* ---------- Init ---------- */
+if(matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.dataset.theme='light';
+CATEGORIES.forEach(c=>{const o=document.createElement('option');o.value=o.textContent=c;$('#cat').append(o);});
+$('#cat').value='Hypercar';
+build();render();
+</script>
+</body>
+</html>

@@ -6,8 +6,8 @@
 <title>ProSettings TCM</title>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0a1a22;--panel:#122d3a;--line:#1f4556;--guide:#1d3f4e;--text:#e8f3f6;--muted:#7fa3b0;--accent:#41c0dd;--warn:#f6a93f;--ctl:#143645;--head:'Oswald','Arial Narrow',sans-serif;--body:'Work Sans',system-ui,sans-serif}
-:root[data-theme=light]{--bg:#e6eff1;--panel:#fff;--line:#c9d6da;--guide:#d9e3e6;--text:#0d2a35;--muted:#587783;--accent:#08758a;--warn:#c4520a;--ctl:#fff}
+:root{--bg:#0a1a22;--panel:#122d3a;--line:#1f4556;--guide:#1d3f4e;--text:#e8f3f6;--muted:#7fa3b0;--accent:#41c0dd;--warn:#f6a93f;--ctl:#143645;--edge:#24566a;--glow:rgba(65,192,221,.20);--grad:radial-gradient(120% 55% at 50% 0%,rgba(65,192,221,.10),transparent 70%),linear-gradient(180deg,#17394a 0%,#122d3a 45%,#0f2631 100%);--head:'Oswald','Arial Narrow',sans-serif;--body:'Work Sans',system-ui,sans-serif}
+:root[data-theme=light]{--bg:#e6eff1;--panel:#fff;--line:#c9d6da;--guide:#d9e3e6;--text:#0d2a35;--muted:#587783;--accent:#08758a;--warn:#c4520a;--ctl:#fff;--edge:#b7ccd2;--glow:rgba(8,117,138,.16);--grad:radial-gradient(120% 55% at 50% 0%,rgba(8,117,138,.06),transparent 70%),linear-gradient(180deg,#fff 0%,#fbfdfd 50%,#f1f7f8 100%)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 var(--body)}
 .wrap{max-width:820px;margin:0 auto;padding:20px 16px 40px}
@@ -19,7 +19,7 @@ button:hover,select:hover{border-color:var(--accent)}
 button.pri{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
 :focus-visible{outline:2px solid var(--warn);outline-offset:2px}
 input[type=text]{cursor:text;min-width:0;flex:1 1 220px}#cat{flex:0 1 180px}.badge{font-size:13px;color:var(--warn);visibility:hidden}.badge.on{visibility:visible}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px 24px 16px}
+.panel{background:var(--panel);background-image:var(--grad);border:1px solid var(--edge);border-radius:12px;box-shadow:0 0 28px var(--glow);padding:20px 24px 16px}
 .panel h2{font:600 26px var(--head);margin:0}
 .cat{color:var(--muted);margin:0 0 6px}
 h3{font:600 17px var(--head);margin:18px 0 6px}
@@ -37,6 +37,12 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;backg
 .xt:before{content:"";position:absolute;left:0;right:0;top:7px;height:2px;background:var(--muted)}
 .xt b{position:absolute;left:0;top:7px;height:2px;background:var(--warn)}
 .xt i{position:absolute;top:2px;width:12px;height:12px;margin-left:-6px;border-radius:50%;background:var(--panel);border:2px solid var(--warn)}
+.land{box-shadow:none;width:1440px;min-height:810px;border-radius:0;border:0;padding:52px 64px 40px}
+.land h2{font-size:34px}.land .cat{margin-bottom:0}
+.land .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 64px;align-items:start}
+.land h3{margin:26px 0 6px}.land .cols>div>h3:first-child{margin-top:22px}
+.land .row{grid-template-columns:auto 1fr 52px 44px 160px 72px;min-height:36px;row-gap:0;padding:0}
+.land .nm{grid-column:auto}.land .gl{display:block}.land .val{text-align:right}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}#toast.err{border-color:var(--warn)}
 @media(max-width:560px){.row{grid-template-columns:auto auto 1fr auto;row-gap:2px;padding:4px 0}.nm{grid-column:1/-1}.gl{display:none}.val{text-align:left}.panel{padding:16px}}
@@ -84,6 +90,7 @@ const SECTIONS=[
 const KEYS=['finalDrive','gripF','gripR','brakeBal','brakePow','loadF','loadR','sprF','sprR','dcF','dcR','drF','drR','arbF','arbR','camF','camR'];
 const DEFAULTS={finalDrive:0,gripF:0,gripR:0,brakeBal:60,brakePow:0,loadF:0,loadR:0,sprF:0,sprR:0,dcF:0,dcR:0,drF:0,drR:0,arbF:0,arbR:0,camF:0,camR:0};
 const CATEGORIES=['Alpha GP','Cup Car','Demolition','Dragster','Drift','Helicopter','Hypercar','Jet','Monster','Motocross','Plane','PowerBoat','Racing','Rally','Rally Raid','Street Tier 1','Street Tier 2'];
+const EXPORT_COLS=[['Transmission','Tires','Brakes','Aero'],['Suspension','Anti Roll Bars','Alignment']]; /* 16:9 export layout */
 const SCALE=3,STORE='hypercar-tuning-v2';
 let state={...DEFAULTS};
 const $=s=>document.querySelector(s),panel=$('#panel');
@@ -130,13 +137,18 @@ let tt;function toast(m,err){const t=$('#toast');t.textContent=m;t.className='on
 async function exportPng(){
  if(typeof html2canvas==='undefined'){toast('Export library failed to load. Check your internet connection and reload.',1);return;}
  const host=document.createElement('div');
- host.style.cssText='position:fixed;left:-9999px;top:0;width:700px';
+ host.style.cssText='position:fixed;left:-9999px;top:0;width:1440px';
  const clone=panel.cloneNode(true);clone.removeAttribute('id');
  clone.querySelectorAll('input[type=range]').forEach(inp=>{
   const r=RANGE[inp.id.slice(2)],pos=(inp.value-r.min)/(r.max-r.min)*100;
   const x=document.createElement('div');x.className='xt';
   x.innerHTML='<b style="width:'+pos+'%"></b><i style="left:'+pos+'%"></i>';inp.replaceWith(x);
  });
+ const groups={};let cur=null;
+ [...clone.children].slice(2).forEach(el=>{if(el.tagName==='H3'){cur=el.textContent;groups[cur]=[];}groups[cur].push(el);});
+ const cols=document.createElement('div');cols.className='cols';
+ EXPORT_COLS.forEach(names=>{const c=document.createElement('div');names.forEach(n=>(groups[n]||[]).forEach(el=>c.append(el)));cols.append(c);});
+ clone.append(cols);clone.classList.add('land');
  host.append(clone);document.body.append(host);
  try{
   if(document.fonts&&document.fonts.ready)await document.fonts.ready;

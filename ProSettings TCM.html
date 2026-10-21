@@ -43,6 +43,18 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;backg
 .land h3{margin:26px 0 6px}.land .cols>div>h3:first-child{margin-top:22px}
 .land .row{grid-template-columns:auto 1fr 52px 44px 160px 72px;min-height:36px;row-gap:0;padding:0}
 .land .nm{grid-column:auto}.land .gl{display:block}.land .val{text-align:right}
+.rsel{position:relative}#ratioBtn{display:inline-flex;align-items:center;gap:8px}
+.icw{display:inline-flex;width:20px;height:18px;align-items:center;justify-content:center}
+.ic{display:block;border:2px solid currentColor;border-radius:2px}.ic.p{width:9px;height:16px}.ic.l{width:18px;height:11px}
+#ratioMenu{position:absolute;top:100%;left:0;z-index:5;margin:4px 0 0;padding:4px;list-style:none;background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:170px;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+#ratioMenu li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer}
+#ratioMenu li:hover,#ratioMenu li[aria-selected=true]{background:var(--ctl)}
+.port{box-shadow:none;width:720px;min-height:1280px;border-radius:0;border:0;padding:56px 44px 48px;display:flex;flex-direction:column}
+.port h2{font-size:32px}.port .cat{margin-bottom:0}
+.port .secs{flex:1;display:flex;flex-direction:column;justify-content:space-between;margin-top:18px}
+.port h3{margin:0 0 8px}
+.port .row{grid-template-columns:auto 1fr 52px 44px 160px 72px;min-height:36px;row-gap:0;padding:0}
+.port .nm{grid-column:auto}.port .gl{display:block}.port .val{text-align:right}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}#toast.err{border-color:var(--warn)}
 @media(max-width:560px){.row{grid-template-columns:auto auto 1fr auto;row-gap:2px;padding:4px 0}.nm{grid-column:1/-1}.gl{display:none}.val{text-align:left}.panel{padding:16px}}
@@ -59,6 +71,8 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;backg
 </div>
 <div class="bar">
  <button class="pri" id="png">Export PNG</button>
+ <div class="rsel"><button id="ratioBtn" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Export ratio"><span class="icw"><span class="ic l" id="ratioIc"></span></span><span id="ratioTxt">16:9</span> &#9662;</button>
+  <ul id="ratioMenu" role="listbox" aria-label="Export ratio" hidden></ul></div>
  <button id="reset">Reset values</button>
  <button id="save">Save</button><button id="load">Load</button>
  <button id="jsonOut">Export JSON</button><button id="jsonIn">Import JSON</button>
@@ -93,6 +107,7 @@ const CATEGORIES=['Alpha GP','Cup Car','Demolition','Dragster','Drift','Helicopt
 const EXPORT_COLS=[['Transmission','Tires','Brakes','Aero'],['Suspension','Anti Roll Bars','Alignment']]; /* 16:9 export layout */
 const SCALE=3,STORE='hypercar-tuning-v2';
 let state={...DEFAULTS};
+let ratio='16:9';try{const r=localStorage.getItem('tcm-ratio');if(r==='9:16'||r==='16:9')ratio=r;}catch(e){}
 const $=s=>document.querySelector(s),panel=$('#panel');
 const RANGE={};SECTIONS.forEach(s=>s.rows.forEach(r=>RANGE[r.k]=r));
 
@@ -137,7 +152,7 @@ let tt;function toast(m,err){const t=$('#toast');t.textContent=m;t.className='on
 async function exportPng(){
  if(typeof html2canvas==='undefined'){toast('Export library failed to load. Check your internet connection and reload.',1);return;}
  const host=document.createElement('div');
- host.style.cssText='position:fixed;left:-9999px;top:0;width:1440px';
+ host.style.cssText='position:fixed;left:-9999px;top:0;width:'+(ratio==='16:9'?1440:720)+'px';
  const clone=panel.cloneNode(true);clone.removeAttribute('id');
  clone.querySelectorAll('input[type=range]').forEach(inp=>{
   const r=RANGE[inp.id.slice(2)],pos=(inp.value-r.min)/(r.max-r.min)*100;
@@ -146,9 +161,15 @@ async function exportPng(){
  });
  const groups={};let cur=null;
  [...clone.children].slice(2).forEach(el=>{if(el.tagName==='H3'){cur=el.textContent;groups[cur]=[];}groups[cur].push(el);});
- const cols=document.createElement('div');cols.className='cols';
- EXPORT_COLS.forEach(names=>{const c=document.createElement('div');names.forEach(n=>(groups[n]||[]).forEach(el=>c.append(el)));cols.append(c);});
- clone.append(cols);clone.classList.add('land');
+ const wrap=document.createElement('div');
+ if(ratio==='16:9'){
+  wrap.className='cols';
+  EXPORT_COLS.forEach(names=>{const c=document.createElement('div');names.forEach(n=>(groups[n]||[]).forEach(el=>c.append(el)));wrap.append(c);});
+ }else{
+  wrap.className='secs';
+  Object.keys(groups).forEach(n=>{const d=document.createElement('div');groups[n].forEach(el=>d.append(el));wrap.append(d);});
+ }
+ clone.append(wrap);clone.classList.add(ratio==='16:9'?'land':'port');
  host.append(clone);document.body.append(host);
  try{
   if(document.fonts&&document.fonts.ready)await document.fonts.ready;
@@ -156,7 +177,7 @@ async function exportPng(){
   const blob=await new Promise(res=>canvas.toBlob(res,'image/png'));
   if(!blob)throw new Error('empty image');
   const base=($('#name').value.trim()||'Car').replace(/[^\w\-]+/g,'-').replace(/^-+|-+$/g,'')||'Car';
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=base+'-Tuning.png';a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=base+'-Tuning-'+ratio.replace(':','x')+'.png';a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);toast('Exported '+a.download);
  }catch(e){toast('Export failed: '+e.message,1);}
  finally{host.remove();}
@@ -183,6 +204,25 @@ $('#reset').onclick=()=>{state={...DEFAULTS};render();toast('Values reset');};
 $('#png').onclick=exportPng;
 $('#name').oninput=header;$('#cat').onchange=header;
 $('#theme').onclick=()=>{const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';};
+
+/* ---------- Export ratio dropdown ---------- */
+const RATIOS=[['9:16','Phone','p'],['16:9','Laptop','l']];
+function setRatio(r){
+ ratio=r;$('#ratioTxt').textContent=r;$('#ratioIc').className='ic '+(r==='9:16'?'p':'l');
+ $('#ratioMenu').querySelectorAll('li').forEach(li=>li.setAttribute('aria-selected',li.dataset.r===r));
+ try{localStorage.setItem('tcm-ratio',r);}catch(e){}
+}
+function closeMenu(){$('#ratioMenu').hidden=true;$('#ratioBtn').setAttribute('aria-expanded','false');}
+RATIOS.forEach(([r,name,k])=>{
+ const li=document.createElement('li');li.dataset.r=r;li.setAttribute('role','option');
+ li.innerHTML='<span class="icw"><span class="ic '+k+'"></span></span><span>'+r+' &middot; '+name+'</span>';
+ li.onclick=()=>{setRatio(r);closeMenu();};
+ $('#ratioMenu').append(li);
+});
+$('#ratioBtn').onclick=e=>{e.stopPropagation();const m=$('#ratioMenu');m.hidden=!m.hidden;$('#ratioBtn').setAttribute('aria-expanded',String(!m.hidden));};
+document.addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+setRatio(ratio);
 
 /* ---------- Init ---------- */
 if(matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.dataset.theme='light';

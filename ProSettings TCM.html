@@ -58,6 +58,11 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;backg
 :root[data-theme=light] h3{display:flex;align-items:center;gap:8px}
 :root[data-theme=light] h3:before{content:"";width:4px;height:15px;border-radius:2px;background:linear-gradient(180deg,var(--accent),var(--warn))}
 .land,.port{background-image:var(--eg),var(--grad)}
+.tg{display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:14px}
+.tg input{-webkit-appearance:none;appearance:none;width:36px;height:20px;margin:0;border-radius:10px;background:var(--ctl);border:1px solid var(--line);position:relative;cursor:pointer}
+.tg input:before{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:left .15s}
+.tg input:checked{border-color:var(--warn)}.tg input:checked:before{left:18px;background:var(--warn)}
+.noawd .row[data-opt=awd]{display:none}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--accent);padding:10px 16px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}#toast.err{border-color:var(--warn)}
 @media(max-width:560px){.row{grid-template-columns:auto auto 1fr auto;row-gap:2px;padding:4px 0}.nm{grid-column:1/-1}.gl{display:none}.val{text-align:left}.panel{padding:16px}}
@@ -71,6 +76,7 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;backg
 <div class="bar">
  <input type="text" id="name" maxlength="60" value="Car name" aria-label="Car name and year" placeholder="Car name (year)">
  <select id="cat" aria-label="Vehicle category"></select>
+ <label class="tg"><input type="checkbox" id="awd" role="switch"><span>Power Distribution (AWD / 4WD)</span></label>
 </div>
 <div class="bar">
  <button class="pri" id="png">Export PNG</button>
@@ -91,7 +97,7 @@ input[type=range]::-moz-range-thumb{width:8px;height:8px;border-radius:50%;backg
 /* ---------- CONFIG: slider ranges and layout (edit here) ---------- */
 const P='pct',S='sign',D='deg',B='brake';
 const SECTIONS=[
- {title:'Transmission',rows:[{k:'finalDrive',n:'Final Drive',min:-20,max:0,step:1,t:P,l:'Short',r:'Long'}]},
+ {title:'Transmission',rows:[{k:'finalDrive',n:'Final Drive',min:-20,max:0,step:1,t:P,l:'Short',r:'Long'},{k:'powerDist',n:'Power Distribution',min:20,max:60,step:1,t:B,rev:true,opt:'awd'}]},
  {title:'Tires',rows:[{k:'gripF',n:'Grip Front',min:-20,max:0,step:1,t:P},{k:'gripR',n:'Grip Rear',min:-20,max:0,step:1,t:P}]},
  {title:'Brakes',rows:[{k:'brakeBal',n:'Brake Balance',min:40,max:80,step:1,t:B,rev:true},{k:'brakePow',n:'Brake Power',min:-30,max:0,step:1,t:P}]},
  {title:'Aero',rows:[{k:'loadF',n:'Load Front',min:-30,max:0,step:1,t:P},{k:'loadR',n:'Load Rear',min:-30,max:0,step:1,t:P}]},
@@ -104,12 +110,12 @@ const SECTIONS=[
  {title:'Alignment',rows:[{k:'camF',n:'Camber Front',min:-0.25,max:0.25,step:0.05,t:D},{k:'camR',n:'Camber Rear',min:-0.25,max:0.25,step:0.05,t:D}]}
 ];
 /* ---------- DEFAULTS (edit here) ---------- */
-const KEYS=['finalDrive','gripF','gripR','brakeBal','brakePow','loadF','loadR','sprF','sprR','dcF','dcR','drF','drR','arbF','arbR','camF','camR'];
-const DEFAULTS={finalDrive:0,gripF:0,gripR:0,brakeBal:60,brakePow:0,loadF:0,loadR:0,sprF:0,sprR:0,dcF:0,dcR:0,drF:0,drR:0,arbF:0,arbR:0,camF:0,camR:0};
+const KEYS=['finalDrive','powerDist','gripF','gripR','brakeBal','brakePow','loadF','loadR','sprF','sprR','dcF','dcR','drF','drR','arbF','arbR','camF','camR'];
+const DEFAULTS={finalDrive:0,powerDist:30,gripF:0,gripR:0,brakeBal:60,brakePow:0,loadF:0,loadR:0,sprF:0,sprR:0,dcF:0,dcR:0,drF:0,drR:0,arbF:0,arbR:0,camF:0,camR:0};
 const CATEGORIES=['Alpha GP','Cup Car','Demolition','Dragster','Drift','Helicopter','Hypercar','Jet','Monster','Motocross','Plane','PowerBoat','Racing','Rally','Rally Raid','Street Tier 1','Street Tier 2'];
 const EXPORT_COLS=[['Transmission','Tires','Brakes','Aero'],['Suspension','Anti Roll Bars','Alignment']]; /* 16:9 export layout */
 const SCALE=3,STORE='hypercar-tuning-v2';
-let state={...DEFAULTS};
+let state={...DEFAULTS};let awd=false;
 let ratio='16:9';try{const r=localStorage.getItem('tcm-ratio');if(r==='9:16'||r==='16:9')ratio=r;}catch(e){}
 const $=s=>document.querySelector(s),panel=$('#panel');
 const RANGE={};SECTIONS.forEach(s=>s.rows.forEach(r=>RANGE[r.k]=r));
@@ -131,7 +137,7 @@ function build(){
  SECTIONS.forEach(s=>{
   const t=document.createElement('h3');t.textContent=s.title;panel.append(t);
   s.rows.forEach(r=>{
-   const row=document.createElement('div');row.className='row';
+   const row=document.createElement('div');row.className='row';if(r.opt)row.dataset.opt=r.opt;
    const mk=(tag,cls,id)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(id)e.id=id;return e;};
    const nm=mk('span','nm');nm.textContent=r.n;
    const inp=mk('input',null,'i-'+r.k);
@@ -147,7 +153,8 @@ function paint(k){
  const r=RANGE[k],v=state[k],[a,b]=labels(r,v);
  $('#v-'+k).textContent=fmt(r,v);$('#l-'+k).textContent=a;$('#r-'+k).textContent=b;const inp=$('#i-'+k);inp.value=r.rev?r.min+r.max-v:v;inp.style.setProperty('--pct',((inp.value-r.min)/(r.max-r.min)*100)+'%');
 }
-function render(){header();KEYS.forEach(paint);dirty();}
+function applyAwd(){panel.classList.toggle('noawd',!awd);$('#awd').checked=awd;}
+function render(){header();applyAwd();KEYS.forEach(paint);dirty();}
 function dirty(){$('#dirty').classList.toggle('on',JSON.stringify(state)!==JSON.stringify(DEFAULTS));}
 let tt;function toast(m,err){const t=$('#toast');t.textContent=m;t.className='on'+(err?' err':'');clearTimeout(tt);tt=setTimeout(()=>t.className='',2600);}
 
@@ -187,12 +194,12 @@ async function exportPng(){
 }
 
 /* ---------- Save / load / JSON ---------- */
-const snapshot=()=>({name:$('#name').value,category:$('#cat').value,values:state});
+const snapshot=()=>({name:$('#name').value,category:$('#cat').value,awd,values:state});
 function apply(src){
  if(!src||typeof src!=='object'||typeof src.values!=='object'||!src.values)throw new Error('invalid data');
  const next={...DEFAULTS};
  KEYS.forEach(k=>{const n=Number(src.values[k]);if(src.values[k]!==undefined&&isFinite(n)){const r=RANGE[k];next[k]=Math.min(r.max,Math.max(r.min,n));}});
- state=next;
+ state=next;awd=!!src.awd;
  if(typeof src.name==='string')$('#name').value=src.name.slice(0,60);
  if(CATEGORIES.includes(src.category))$('#cat').value=src.category;
  render();
@@ -204,6 +211,7 @@ $('#jsonIn').onclick=()=>$('#file').click();
 $('#file').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;
  try{apply(JSON.parse(await f.text()));toast('JSON imported');}catch(err){toast('Invalid JSON file: '+err.message,1);}};
 $('#reset').onclick=()=>{state={...DEFAULTS};render();toast('Values reset');};
+$('#awd').onchange=e=>{awd=e.target.checked;applyAwd();};
 $('#png').onclick=exportPng;
 $('#name').oninput=header;$('#cat').onchange=header;
 $('#theme').onclick=()=>{const h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark';};
